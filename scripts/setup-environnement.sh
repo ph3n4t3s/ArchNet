@@ -12,7 +12,6 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-# Charger les variables d'environnement
 set -a
 source .env
 set +a
@@ -31,99 +30,17 @@ warn() {
     echo -e "${YELLOW}[WARNING] $1${NC}"
 }
 
-# Configuration du réseau
-setup_network() {
-    log "Configuration du réseau..."
-
-    # Sauvegarde de la configuration réseau actuelle
-    if [ -f "/etc/network/interfaces" ]; then
-        cp /etc/network/interfaces /etc/network/interfaces.backup
-    fi
-
-    # Configuration de l'interface réseau
-    cat > /etc/network/interfaces.d/archnet << EOF
-auto ${NETWORK_INTERFACE}
-iface ${NETWORK_INTERFACE} inet static
-    address ${TEACHER_IP}
-    netmask ${NETMASK}
-    network ${NETWORK_SUBNET%/*}
-EOF
-
-    # Redémarrer le service réseau
-    systemctl restart networking || error "Erreur lors du redémarrage du service réseau"
+# Vérifier les prérequis
+check_prerequisites() {
+    log "Vérification des prérequis..."
+    # Ajoutez ici des vérifications spécifiques si nécessaire
 }
 
-# Configuration des permissions
-setup_permissions() {
-    log "Configuration des permissions..."
+# Configurer l'environnement
+log "Configuration de l'environnement..."
 
-    # Création des répertoires nécessaires
-    mkdir -p logs
-    mkdir -p data
-    
-    # Attribution des permissions
-    chmod -R 755 scripts/
-    chmod -R 777 logs/
-    chmod -R 777 data/
-}
+# Build and start the monitoring service
+docker-compose build monitoring
+docker-compose up -d monitoring
 
-# Vérification de l'environnement
-check_environment() {
-    log "Vérification de l'environnement..."
-
-    # Vérifier la connexion réseau
-    if ! ping -c 1 ${ROUTER_IP} &> /dev/null; then
-        warn "Impossible de joindre le routeur (${ROUTER_IP})"
-    fi
-
-    # Vérifier les ports requis
-    if netstat -tuln | grep -q ":${DOCKER_FRONTEND_PORT} "; then
-        error "Le port ${DOCKER_FRONTEND_PORT} est déjà utilisé"
-    fi
-    
-    if netstat -tuln | grep -q ":${DOCKER_BACKEND_PORT} "; then
-        error "Le port ${DOCKER_BACKEND_PORT} est déjà utilisé"
-    fi
-}
-
-# Vérification des variables d'environnement
-check_env_variables() {
-    log "Vérification des variables d'environnement..."
-    
-    required_vars=(
-        "NETWORK_INTERFACE"
-        "TEACHER_IP"
-        "NETWORK_SUBNET"
-        "ROUTER_IP"
-        "NETMASK"
-        "DOCKER_FRONTEND_PORT"
-        "DOCKER_BACKEND_PORT"
-    )
-
-    for var in "${required_vars[@]}"; do
-        if [ -z "${!var}" ]; then
-            error "Variable d'environnement manquante : $var"
-        fi
-    done
-}
-
-# Fonction principale
-main() {
-    log "Configuration de l'environnement ${APP_NAME}..."
-
-    # Vérifier les privilèges root
-    if [ "$EUID" -ne 0 ]; then
-        error "Ce script doit être exécuté en tant que root"
-    fi
-
-    check_env_variables
-    setup_network
-    setup_permissions
-    check_environment
-
-    log "Configuration de l'environnement terminée"
-    log "Vous pouvez maintenant lancer l'installation avec: ./install.sh"
-}
-
-# Exécution
-main "$@"
+log "Configuration terminée avec succès."
