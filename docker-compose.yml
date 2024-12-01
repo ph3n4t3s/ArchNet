@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./docker/backend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOST=0.0.0.0
+    volumes:
+      - ./docker/backend/src:/app/src
+    networks:
+      - archnet
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./docker/frontend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=http://localhost:3001
+    volumes:
+      - ./docker/frontend/src:/app/src
+    depends_on:
+      - backend
+    networks:
+      - archnet
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - archnet
+    restart: unless-stopped
+
+  monitoring:
+    build:
+      context: ./docker/monitoring
+      dockerfile: Dockerfile
+    environment:
+      - NETWORK_SUBNET=192.168.0.0/24
+      - TEACHER_IP=192.168.0.1
+      - ROUTER_IP=192.168.0.254
+    volumes:
+      - ./docker/monitoring/src:/app/src
+    networks:
+      - archnet
+    restart: unless-stopped
+
+networks:
+  archnet:
+    driver: bridge
